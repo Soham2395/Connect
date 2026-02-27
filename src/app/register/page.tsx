@@ -73,8 +73,10 @@ export default function RegisterPage() {
                 </div>
 
                 {/* Card */}
-                <div className="glass-card rounded-[2.5rem] p-10 shadow-premium">
-                    <form onSubmit={handleSubmit} className="space-y-5">
+                <div className="glass-card rounded-[2.5rem] p-10 shadow-premium relative group">
+                    <div className="absolute -inset-1 bg-gradient-to-r from-primary/20 via-purple-500/20 to-pink-500/20 rounded-[2.6rem] blur opacity-25 group-hover:opacity-100 transition duration-1000 group-hover:duration-200 pointer-events-none"></div>
+
+                    <form onSubmit={handleSubmit} className="space-y-5 relative">
                         {error && (
                             <div className="bg-danger/10 border border-danger/20 text-danger px-4 py-3 rounded-2xl text-sm font-medium animate-fade-in flex items-center gap-2">
                                 <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
@@ -157,7 +159,7 @@ export default function RegisterPage() {
                         </button>
                     </form>
 
-                    <div className="mt-8 pt-8 border-t border-border/50 text-center">
+                    <div className="mt-8 pt-8 border-t border-border/50 text-center relative z-10">
                         <p className="text-foreground/50 text-sm font-medium">
                             Already have an account?{" "}
                             <Link

@@ -5,6 +5,17 @@ import { useAuth } from "@/context/AuthContext";
 import { IMessageBase as IMessage } from "@/models/Message";
 import MessageBubble from "./MessageBubble";
 
+const EMOJI_LIST = [
+    "😀", "😂", "🥹", "😍", "🥰", "😘", "😎", "🤩", "🥳", "😭",
+    "😤", "🤯", "🫡", "🤔", "🫣", "😴", "🤮", "🥶", "🥵", "😈",
+    "👍", "👎", "👏", "🙌", "🤝", "✌️", "🤞", "💪", "🫶", "❤️",
+    "🔥", "⭐", "✨", "💯", "🎉", "🎊", "💀", "👀", "🙏", "💫",
+    "😊", "😇", "🤣", "😋", "😜", "🤪", "😝", "🤗", "🤭", "😶",
+    "😑", "😏", "😒", "🙄", "😬", "😮", "😯", "😲", "😱", "😢",
+    "🫠", "🤐", "🤨", "🧐", "🤓", "💩", "🤡", "👋",
+    "🫰", "👌", "🤌", "🤏", "✊", "👊", "🤛", "🤜", "👆", "👇",
+];
+
 interface ChatWindowProps {
     messages: IMessage[];
     activeConversation: string | null;
@@ -35,9 +46,12 @@ export default function ChatWindow({
     isLoadingMore,
 }: ChatWindowProps) {
     const [content, setContent] = useState("");
+    const [showEmojis, setShowEmojis] = useState(false);
     const { user } = useAuth();
     const scrollRef = useRef<HTMLDivElement>(null);
     const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const emojiRef = useRef<HTMLDivElement>(null);
+    const inputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         if (scrollRef.current) {
@@ -45,11 +59,25 @@ export default function ChatWindow({
         }
     }, [messages.length]);
 
+    // Close emoji picker on outside click
+    useEffect(() => {
+        const handleClickOutside = (e: MouseEvent) => {
+            if (emojiRef.current && !emojiRef.current.contains(e.target as Node)) {
+                setShowEmojis(false);
+            }
+        };
+        if (showEmojis) {
+            document.addEventListener("mousedown", handleClickOutside);
+        }
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, [showEmojis]);
+
     const handleSendMessage = (e: FormEvent) => {
         e.preventDefault();
         if (!content.trim()) return;
         onSendMessage(content);
         setContent("");
+        setShowEmojis(false);
         onTyping(false);
     };
 
@@ -61,6 +89,11 @@ export default function ChatWindow({
         typingTimeoutRef.current = setTimeout(() => {
             onTyping(false);
         }, 2000);
+    };
+
+    const insertEmoji = (emoji: string) => {
+        setContent((prev) => prev + emoji);
+        inputRef.current?.focus();
     };
 
     if (!activeConversation) {
@@ -125,8 +158,7 @@ export default function ChatWindow({
             {/* Messages */}
             <div
                 ref={scrollRef}
-                className="flex-1 overflow-y-auto p-8 space-y-6 custom-scrollbar bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] bg-fixed"
-                style={{ backgroundBlendMode: 'overlay', backgroundColor: 'rgba(10,10,15,0.02)' }}
+                className="flex-1 overflow-y-auto p-8 space-y-6 custom-scrollbar"
             >
                 {hasMore && (
                     <div className="flex justify-center">
@@ -166,15 +198,41 @@ export default function ChatWindow({
             </div>
 
             {/* Input */}
-            <div className="p-8 pt-4">
+            <div className="p-8 pt-4 relative">
+                {/* Emoji Picker */}
+                {showEmojis && (
+                    <div
+                        ref={emojiRef}
+                        className="absolute bottom-24 left-8 w-80 bg-secondary border border-border rounded-3xl shadow-premium p-4 z-30 animate-fade-in"
+                    >
+                        <div className="grid grid-cols-8 gap-1 max-h-60 overflow-y-auto custom-scrollbar">
+                            {EMOJI_LIST.map((emoji) => (
+                                <button
+                                    key={emoji}
+                                    type="button"
+                                    onClick={() => insertEmoji(emoji)}
+                                    className="w-9 h-9 flex items-center justify-center text-xl rounded-xl hover:bg-primary/10 transition-colors"
+                                >
+                                    {emoji}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
                 <form
                     onSubmit={handleSendMessage}
                     className="flex items-center gap-4 bg-tertiary/50 border border-border p-2 rounded-[2rem] focus-within:ring-4 focus-within:ring-primary/5 focus-within:border-primary/50 transition-all duration-300"
                 >
-                    <button type="button" className="w-12 h-12 flex items-center justify-center text-foreground/30 hover:text-primary transition-colors">
+                    <button
+                        type="button"
+                        onClick={() => setShowEmojis(!showEmojis)}
+                        className={`w-12 h-12 flex items-center justify-center transition-colors rounded-full ${showEmojis ? "text-primary bg-primary/10" : "text-foreground/30 hover:text-primary"}`}
+                    >
                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                     </button>
                     <input
+                        ref={inputRef}
                         type="text"
                         value={content}
                         onChange={handleChange}
@@ -186,7 +244,7 @@ export default function ChatWindow({
                         disabled={!content.trim()}
                         className="w-12 h-12 flex items-center justify-center bg-primary text-white rounded-full transition-all active:scale-90 disabled:opacity-20 disabled:grayscale"
                     >
-                        <svg className="w-6 h-6 rotate-45" fill="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
                             <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
                         </svg>
                     </button>

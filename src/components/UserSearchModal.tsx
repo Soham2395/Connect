@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { IUserBase as IUser } from "@/models/User";
 
@@ -18,25 +18,56 @@ export default function UserSearchModal({
     const [query, setQuery] = useState("");
     const [results, setResults] = useState<IUser[]>([]);
     const [isLoading, setIsLoading] = useState(false);
+    const [hasSearched, setHasSearched] = useState(false);
     const { token } = useAuth();
+    const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
-    const handleSearch = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!query.trim()) return;
+    const searchUsers = useCallback(
+        async (searchQuery: string) => {
+            if (!searchQuery.trim()) {
+                setResults([]);
+                setHasSearched(false);
+                return;
+            }
 
-        setIsLoading(true);
-        try {
-            const res = await fetch(`/api/users/search?q=${encodeURIComponent(query)}`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            const data = await res.json();
-            setResults(data);
-        } catch (err) {
-            console.error("Search failed:", err);
-        } finally {
-            setIsLoading(false);
+            setIsLoading(true);
+            try {
+                const res = await fetch(
+                    `/api/users/search?q=${encodeURIComponent(searchQuery)}`,
+                    {
+                        headers: { Authorization: `Bearer ${token}` },
+                    }
+                );
+                const data = await res.json();
+                setResults(data.users || []);
+                setHasSearched(true);
+            } catch (err) {
+                console.error("Search failed:", err);
+            } finally {
+                setIsLoading(false);
+            }
+        },
+        [token]
+    );
+
+    // Auto-search with debounce as user types
+    useEffect(() => {
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+
+        if (!query.trim()) {
+            setResults([]);
+            setHasSearched(false);
+            return;
         }
-    };
+
+        debounceRef.current = setTimeout(() => {
+            searchUsers(query);
+        }, 300);
+
+        return () => {
+            if (debounceRef.current) clearTimeout(debounceRef.current);
+        };
+    }, [query, searchUsers]);
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-background/80 backdrop-blur-xl animate-fade-in">
@@ -55,7 +86,7 @@ export default function UserSearchModal({
                     <p className="text-foreground/50 font-medium tracking-wide uppercase text-xs mt-1">Discover people on Connect</p>
                 </div>
 
-                <form onSubmit={handleSearch} className="mb-8 relative group">
+                <div className="mb-8 relative group">
                     <svg
                         className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-foreground/30 group-focus-within:text-primary transition-colors"
                         fill="none"
@@ -69,24 +100,18 @@ export default function UserSearchModal({
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
                         placeholder="Search by name or email..."
-                        className="w-full pl-14 pr-24 py-4 bg-tertiary/50 border border-border rounded-3xl text-foreground placeholder-foreground/20 focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all"
+                        className="w-full pl-14 pr-6 py-4 bg-tertiary/50 border border-border rounded-3xl text-foreground placeholder-foreground/20 focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all"
                         autoFocus
                     />
-                    <button
-                        type="submit"
-                        className="absolute right-3 top-1/2 -translate-y-1/2 px-5 py-2.5 bg-primary text-white text-sm font-bold rounded-2xl hover:bg-primary-hover active:scale-95 transition-all"
-                    >
-                        Search
-                    </button>
-                </form>
+                    {isLoading && (
+                        <div className="absolute right-5 top-1/2 -translate-y-1/2">
+                            <div className="w-5 h-5 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
+                        </div>
+                    )}
+                </div>
 
                 <div className="flex-1 overflow-y-auto space-y-3 custom-scrollbar pr-2">
-                    {isLoading ? (
-                        <div className="flex flex-col items-center justify-center py-12 gap-4">
-                            <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
-                            <p className="text-sm font-bold text-foreground/40 uppercase tracking-widest">Searching Users...</p>
-                        </div>
-                    ) : results.length > 0 ? (
+                    {results.length > 0 ? (
                         results.map((user) => (
                             <button
                                 key={user._id}
@@ -114,14 +139,18 @@ export default function UserSearchModal({
                                 </div>
                             </button>
                         ))
-                    ) : query && (
+                    ) : hasSearched && query.trim() ? (
                         <div className="text-center py-12">
                             <div className="w-20 h-20 bg-tertiary rounded-full flex items-center justify-center mx-auto mb-4 opacity-30">
                                 <svg className="w-10 h-10 text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
                             </div>
                             <p className="text-foreground/40 font-bold uppercase tracking-widest text-xs">No users found for &quot;{query}&quot;</p>
                         </div>
-                    )}
+                    ) : !query.trim() ? (
+                        <div className="text-center py-12">
+                            <p className="text-foreground/30 text-sm font-medium">Start typing to find people</p>
+                        </div>
+                    ) : null}
                 </div>
             </div>
         </div>

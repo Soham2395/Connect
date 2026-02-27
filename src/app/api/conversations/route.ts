@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/mongodb";
 import Conversation from "@/models/Conversation";
+import "@/models/Message";   // register schema for populate
+import "@/models/User";      // register schema for populate
 import { getAuthUser } from "@/lib/auth";
 
 export async function GET(req: NextRequest) {

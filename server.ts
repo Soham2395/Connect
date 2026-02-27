@@ -8,22 +8,32 @@ import fs from "fs";
 import path from "path";
 
 // ---------- ENV ----------
-const envPath = path.join(__dirname, ".env.local");
-if (fs.existsSync(envPath)) {
-    const content = fs.readFileSync(envPath, "utf-8");
-    content.split("\n").forEach((line) => {
-        const trimmed = line.trim();
-        if (trimmed && !trimmed.startsWith("#")) {
-            const eqIndex = trimmed.indexOf("=");
-            if (eqIndex > 0) {
-                const key = trimmed.substring(0, eqIndex).trim();
-                const val = trimmed.substring(eqIndex + 1).trim();
-                if (!process.env[key]) {
-                    process.env[key] = val;
+const envFiles = [
+    path.join(__dirname, ".env.local"),
+    path.join(__dirname, ".env"),
+];
+
+for (const envFile of envFiles) {
+    if (fs.existsSync(envFile)) {
+        const content = fs.readFileSync(envFile, "utf-8");
+        content.split("\n").forEach((line) => {
+            const trimmed = line.trim();
+            if (trimmed && !trimmed.startsWith("#")) {
+                const eqIndex = trimmed.indexOf("=");
+                if (eqIndex > 0) {
+                    const key = trimmed.substring(0, eqIndex).trim();
+                    let val = trimmed.substring(eqIndex + 1).trim();
+                    // Strip surrounding quotes
+                    if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+                        val = val.slice(1, -1);
+                    }
+                    if (!process.env[key]) {
+                        process.env[key] = val;
+                    }
                 }
             }
-        }
-    });
+        });
+    }
 }
 
 const dev = process.env.NODE_ENV !== "production";
